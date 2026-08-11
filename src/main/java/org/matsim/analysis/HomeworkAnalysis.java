@@ -19,14 +19,32 @@ public class HomeworkAnalysis {
     static boolean isCloseToU2(Coord coord){
         Coord pankowKirche = new Coord(798738,5833686);
         Coord ossietzkyPlatz = new Coord(798323,5834760);
+        Coord stockholmer = new Coord(797147,5832492);
+        Coord Wollankstraße = new Coord(797727,5832901);
+        Coord Rathaus = new Coord(798288,5833457);
+        Coord Kirche = new Coord(798815,5833690);
+        Coord Klaustaler = new Coord(799601,5833981);
+        Coord Heinersdorf = new Coord(799991,5834432);
+
+
         var a = CoordUtils.calcEuclideanDistance(coord, pankowKirche);
         var b = CoordUtils.calcEuclideanDistance(coord, ossietzkyPlatz);
-        return a <= 1500 || b <= 1500;
+        var c = CoordUtils.calcEuclideanDistance(coord, stockholmer);
+        var d = CoordUtils.calcEuclideanDistance(coord, Wollankstraße);
+        var e = CoordUtils.calcEuclideanDistance(coord, Rathaus);
+        var f = CoordUtils.calcEuclideanDistance(coord, Kirche);
+        var g = CoordUtils.calcEuclideanDistance(coord, Klaustaler);
+        var h = CoordUtils.calcEuclideanDistance(coord, Heinersdorf);
+
+
+
+        return a <= 500 || b <= 500 || c <= 500 || d <= 500 || e <= 500 || f <= 500 || g <= 500 || h <= 500;
     }
 
-    static void analyzeU2Usage(String path, String scenario){
+    static void analyzeUsage(String path, String scenario, String keyword){
         Population population = PopulationUtils.readPopulation(path);
 
+        System.out.println(population.getPersons().size());
         final int simulation_time_minutes = 60*24*2;
         int[] buckets_pt = new int[simulation_time_minutes];
         int[] buckets = new int[simulation_time_minutes];
@@ -35,21 +53,10 @@ public class HomeworkAnalysis {
             List<Activity> activities = TripStructureUtils.getActivities(person.getSelectedPlan(), TripStructureUtils.StageActivityHandling.StagesAsNormalActivities);
             List<Leg> legs = TripStructureUtils.getLegs(person.getSelectedPlan());
 
-            boolean isClose = false;
 
-            try{
-                Activity home = activities.getFirst();
-                if(home != null){
-                    var homeCoord = home.getCoord();
-                    isClose = isCloseToU2(homeCoord);
-                }
-            } catch (Exception _) {
-
-            }
 
 
             for (var l : legs) {
-
                 if (l.getMode().equals("pt")) {
                     int start = (int) Math.round(l.getDepartureTime().seconds() / 60);
                     int end = (int) Math.round(start + l.getTravelTime().seconds() / 60);
@@ -57,7 +64,8 @@ public class HomeworkAnalysis {
                         buckets_pt[i]++;
                     }
 
-                    if (l.getRoute().getRouteDescription().contains("U2")) {
+                    if (l.getRoute().getRouteDescription().contains(keyword)) {
+                        System.out.println(l.getRoute().getRouteDescription());
                         for (int i = start; i <= end; i++) {
                             buckets[i]++;
                         }
@@ -68,11 +76,11 @@ public class HomeworkAnalysis {
 
         try
         {
-            FileWriter writer = new FileWriter("./analysis/pt_util_"+scenario+".csv");
+            FileWriter writer = new FileWriter("./analysis/pt_util_"+scenario+"_"+keyword+".csv");
 
             writer.append("Minute");
             writer.append(',');
-            writer.append("Util_U2");
+            writer.append("Util_%s".formatted(keyword));
             writer.append(',');
             writer.append("Util_PT");
             writer.append('\n');
@@ -158,12 +166,62 @@ public class HomeworkAnalysis {
 
     }
 
+    static void analyze500m(String path, String scenario){
+        Population population = PopulationUtils.readPopulation(path);
+
+        Map<String,Integer> travelTimes = new HashMap<String,Integer>();
+
+        try
+        {
+            FileWriter writer = new FileWriter("./analysis/agentList_"+scenario+".csv");
+
+            for (Person person : population.getPersons().values()) {
+                List<Activity> activities = TripStructureUtils.getActivities(person.getSelectedPlan(), TripStructureUtils.StageActivityHandling.StagesAsNormalActivities);
+                List<Leg> legs = TripStructureUtils.getLegs(person.getSelectedPlan());
+                boolean isClose = false;
+
+                try{
+                    Activity home = activities.getFirst();
+                    if(home != null){
+                        var homeCoord = home.getCoord();
+                        isClose = isCloseToU2(homeCoord);
+                    }
+                } catch (Exception _) {
+
+                }
+                if(isClose){
+                    writer.append(person.getId().toString());
+                    writer.append(",");
+                    writer.append(activities.getFirst().getType());
+                    writer.append('\n');
+
+                }
+
+            }
+
+            writer.flush();
+            writer.close();
+        }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
+
+
+    }
+
 
     static void main() {
-        analyzeU2Usage("output/berlin-v7.1-1pct.output_experienced_plans.xml", "base");
-        analyzeU2Usage("output/berlin-v7.1-1pct-u2-extension.output_experienced_plans.xml", "policy");
+        //for (var s : new String[]{"U2", "U9", "S41", "S42", "S25","S85","S2","S26"}){
+        for (var s : new String[]{"M1-"}){
+            analyzeUsage("output/berlin-v7.1-1pct.output_experienced_plans.xml", "base",s);
+            analyzeUsage("output/berlin-v7.1-1pct-u2-u9-extension.output_experienced_plans.xml", "policy",s);
+        }
+        //analyzeU2Usage("output/berlin-v7.1-1pct-u2-extension.output_experienced_plans.xml", "policy");
 
-        analyzeU2ExtResidents("output/berlin-v7.1-1pct.output_experienced_plans.xml", "base");
-        analyzeU2ExtResidents("output/berlin-v7.1-1pct-u2-extension.output_experienced_plans.xml", "policy");
+        //analyzeU2ExtResidents("output/berlin-v7.1-1pct.output_experienced_plans.xml", "base");
+        //analyzeU2ExtResidents("output/berlin-v7.1-1pct-u2-extension.output_experienced_plans.xml", "policy");
+
+        //analyze500m("output/berlin-v7.1-1pct-u2-u9-extension.output_experienced_plans.xml", "u2u9policy");
     }
 }
